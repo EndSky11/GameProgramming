@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+#info {
+  position: absolute;
+  top: 0px;
+  width: 100%;
+  padding: 10px;
+  text-align: center;
+  color: #ffff00;
+}
+
+body {
+  overflow: hidden;
+}
+</style>
+</head>
+
+<script src="https://threejs.org/build/three.min.js"></script>
+<script src="https://threejs.org/examples/js/controls/OrbitControls.js"></script>
+<script src="https://code.jquery.com/jquery-2.1.4.min.js"></script>
+
+<body>
+<div id="info">HW0
+<br>
+<button id="trainturn" onclick="Button()">Toggle Turn</button>
+<br>
+
+<script>
+
+var camera, scene, renderer;
+var clock,train,angle=Math.PI/2,straightline=40,step=0,speed1=2,speed2=20;
+var saved_mode = 0,stop = 0;
+init();
+animate();
+function init() {
+  scene = new THREE.Scene();
+	clock = new THREE.Clock();
+  renderer = new THREE.WebGLRenderer();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setClearColor(0x888888);
+  document.body.appendChild(renderer.domElement);
+
+  camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 1, 1000);
+  camera.position.set(0,100,100);
+  let controls = new THREE.OrbitControls(camera, renderer.domElement);
+
+  ////////////////////////////////////////////////////////////////
+  var gridXZ = new THREE.GridHelper(200, 20, 'red', 'white');
+  scene.add(gridXZ);
+  
+  train= new THREE.Group();
+  let trainbody =new THREE.Mesh(new THREE.BoxGeometry(10,10,30),new THREE.MeshNormalMaterial());
+  let trainhead =new THREE.Mesh(new THREE.CylinderGeometry(4,4,10,20),new THREE.MeshNormalMaterial());
+  trainhead.position.y=5;
+  trainhead.position.z=-10;
+  train.add(trainbody,trainhead);
+  scene.add(train);
+}
+
+function animate() {
+
+	var radius=50,dt;
+  if(step == 0){
+  	train.rotation.y = Math.PI/2;
+    train.position.set(straightline,5,-50);
+    straightline -= speed1;
+    if(straightline < -40){
+    	clock.start();
+      step = 1;
+    }
+  } 
+  else if(step == 1){
+		train.position.set(straightline + radius* Math.cos(angle), 5, -radius* Math.sin(angle));
+    train.rotation.y = angle;
+		dt = clock.getDelta();
+    angle += speed2*0.10472*dt;   
+		if(straightline + radius* Math.cos(angle) > -40){
+    	clock.stop();
+      step = 2;
+    }
+  }
+  else if(step == 2){
+  	train.position.set(straightline,5,50);
+    train.rotation.y = Math.PI/2*3;
+    straightline += speed1;
+    if(straightline > 40){
+    	clock.start();
+      step = 3;
+    }
+  }
+  else if(step == 3){
+    train.position.set(straightline + radius*Math.cos(angle), 5, -radius* Math.sin(angle));
+    train.rotation.y = angle;
+    dt = clock.getDelta();
+    angle += speed2*0.10472*dt;
+    if(straightline +radius*Math.cos(angle) < 40){
+    	clock.stop();
+    	step = 0;
+    }
+  }
+  requestAnimationFrame(animate);
+  render();
+}
+function render() {
+
+  renderer.render(scene, camera);
+
+}
+function Button(){
+    if(stop == 0){
+	stop = 1;
+        saved_mode = step;
+	clock.stop();
+        step= 4;
+    }
+    else{
+       	stop = 0;
+	clock.start();
+        step= saved_mode;
+    }
+}
+</script>
+</div>
+</body>
+</html>
