@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+#info {
+  position: absolute;
+  top: 0px;
+  width: 100%;
+  padding: 10px;
+  text-align: center;
+  color: #ffff00
+}
+
+body {
+  overflow: hidden;
+}
+</style>
+</head>
+
+  <script src="https://threejs.org/build/three.min.js"></script>
+  <script src="https://threejs.org/examples/js/controls/OrbitControls.js"></script>
+  <audio id="collisionsound" style="display:none">
+	<source src="collision3.wav" type='audio/wav'>
+  </audio>
+
+<body>
+<div id="info">HW1
+<script>
+var camera, scene, renderer;
+var pucks=[],lights=[],myPucks=[];
+var light1,light2,light3,light4,light5;
+var puck1,puck2,puck3,puck4,puck5;
+var wall1,wall2,wall3,wall4;
+var puckMesh,lightMesh,wallMesh,puckColor,puckWall,length,width,height,collisionSound;
+
+class Puck{
+    constructor(x,y,deltaX,deltaY){
+    this.x = x;
+    this.y = y;
+    this.deltaX = deltaX;
+    this.deltaY = deltaY;
+  }
+  move(){
+    this.x+=this.deltaX;
+    this.y+=this.deltaY;
+  }
+}
+
+var p1 = new Puck(50,getRandom(90,-90),getRandom(3,-3),getRandom(3,-3));
+var p2 = new Puck(25,getRandom(90,-90),getRandom(3,-3),getRandom(3,-3));
+var p3 = new Puck(0,getRandom(90,-90),getRandom(3,-3),getRandom(3,-3));
+var p4 = new Puck(-25,getRandom(90,-90),getRandom(3,-3),getRandom(3,-3));
+var p5 = new Puck(-50,getRandom(90,-90),getRandom(3,-3),getRandom(3,-3));
+
+function onWindowResize() {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+}
+
+function getRandom(max, min) {
+  return Math.random() * (max - min) + min;
+}
+
+function swapVector(a,b){
+  let temp = a.deltaX; a.deltaX = b.deltaX; b.deltaX = temp;
+  temp = a.deltaY; a.deltaY = b.deltaY; b.deltaY = temp;
+}
+
+function pucksStick(a,b){
+ if(a.x > b.x){
+   a.x += 1; b.x -= 1;
+ }
+ else{
+   a.x -= 1; b.x += 1;
+ }
+ if(a.y > b.y){
+   a.y += 1; b.y -= 1;
+ }
+ else{
+   a.y -= 1; b.y += 1;
+ }
+}
+
+function buildPuck () {
+  puckMesh = new THREE.Mesh (new THREE.CylinderGeometry(10,10,4,20), new THREE.MeshBasicMaterial());
+  puckMesh.material.color = new THREE.Color().setHSL ( Math.random(), Math.random() , Math.random());
+  scene.add(puckMesh);
+  pucks.push(puckMesh); 
+  return puckMesh;
+}
+
+function buildLight(puckColor){
+   lightMesh = new THREE.PointLight( 0xffffff, 1);
+   lightMesh.color.copy (puckColor.material.color);
+   scene.add(lightMesh);
+   lights.push(lightMesh);
+}
+
+function buildWall(length,width,height){
+  wallMesh = new THREE.Mesh (new THREE.BoxGeometry(length,width,height), new THREE.MeshBasicMaterial({color:"pink", transparent: true, opacity:0.4}));
+  scene.add (wallMesh);
+  return wallMesh;
+}
+
+function pucksCollision(){
+  if(Math.abs(p1.x-p2.x)<16&&Math.abs(p1.y-p2.y)<16){
+    swapVector(p1,p2);
+    pucksStick(p1,p2);
+    collisionSound.play();
+  }
+  if(Math.abs(p1.x-p3.x)<16&&Math.abs(p1.y-p3.y)<16){
+    swapVector(p1,p3);
+    pucksStick(p1,p3);
+    collisionSound.play();
+  }
+  if(Math.abs(p1.x-p4.x)<16&&Math.abs(p1.y-p4.y)<16){
+    swapVector(p1,p4);
+    pucksStick(p1,p4);
+    collisionSound.play();
+  }
+  if(Math.abs(p1.x-p5.x)<16&&Math.abs(p1.y-p5.y)<16){
+    swapVector(p1,p5);
+    pucksStick(p1,p5);
+    collisionSound.play();
+  }
+  if(Math.abs(p2.x-p3.x)<16&&Math.abs(p2.y-p3.y)<16){
+    swapVector(p2,p3);
+    pucksStick(p2,p3);
+    collisionSound.play();
+  }
+  if(Math.abs(p2.x-p4.x)<16&&Math.abs(p2.y-p4.y)<16){
+    swapVector(p2,p4);
+    pucksStick(p2,p4);
+    collisionSound.play();
+  }
+  if(Math.abs(p2.x-p5.x)<16&&Math.abs(p2.y-p5.y)<16){
+    swapVector(p2,p5);
+    pucksStick(p2,p5);
+    collisionSound.play();
+  }
+  if(Math.abs(p3.x-p4.x)<16&&Math.abs(p3.y-p4.y)<16){
+    swapVector(p3,p4);
+    pucksStick(p3,p4);
+    collisionSound.play();
+  }
+  if(Math.abs(p3.x-p5.x)<16&&Math.abs(p3.y-p5.y)<16){
+    swapVector(p3,p5);
+    pucksStick(p3,p5);
+    collisionSound.play();
+  }
+  if(Math.abs(p4.x-p5.x)<16&&Math.abs(p4.y-p5.y)<16){
+    swapVector(p4,p5);
+    pucksStick(p4,p5);
+    collisionSound.play();
+  }
+}
+
+function wallCollision(puckWall){
+  if(puckWall.x >= 90||puckWall.x <= -90){
+    puckWall.deltaX = - puckWall.deltaX;
+    if(puckWall.x >= 90){
+    	puckWall.x = 88;
+    }
+    if(puckWall.x <= -90){
+    	puckWall.x = -88;
+    }
+    collisionSound.play();
+  }
+  if(puckWall.y>=90||puckWall.y<=-90){
+    puckWall.deltaY = - puckWall.deltaY;
+    if(puckWall.y >= 90){
+    	puckWall.y = 88;
+    }
+    if(puckWall.y <= -90){
+    	puckWall.y = -88;
+    }
+    collisionSound.play();
+  }
+}
+
+init();
+animate();
+
+function init() {
+  collisionSound = document.getElementById ('collisionsound');
+  scene = new THREE.Scene();
+  
+  renderer = new THREE.WebGLRenderer({antialias: true});
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setClearColor(0x888888);
+  document.body.appendChild(renderer.domElement);
+
+  camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 1, 1000);
+  camera.position.set (0,300,400);
+  let controls = new THREE.OrbitControls(camera, renderer.domElement);
+ 
+  var floor = new THREE.Mesh (new THREE.PlaneGeometry(200,200), new THREE.MeshPhongMaterial());
+  floor.rotation.x = -Math.PI/2;
+  scene.add (floor);
+
+  ////////////////////////////////////////////////////////
+   myPucks.push(p1);
+   myPucks.push(p2);
+   myPucks.push(p3);
+   myPucks.push(p4);
+   myPucks.push(p5);
+   
+   puck1 = buildPuck();
+   light1 = buildLight(puck1);
+   
+   puck2 = buildPuck();
+   light2 = buildLight(puck2);
+   
+   puck3 = buildPuck();
+   light3 = buildLight(puck3);
+   
+   puck4 = buildPuck();
+   light4 = buildLight(puck4);
+   
+   puck5 = buildPuck();
+   light5 = buildLight(puck5);
+   
+   wall1 = buildWall(200,40,5);
+   wall1.position.set (0,20,-102);
+    
+   wall2 = buildWall(200,40,5);
+   wall2.position.set (0,20,102);
+    
+   wall3 = buildWall(210,40,5);
+   wall3.rotation.y = Math.PI/2;
+   wall3.position.set (102,20,0);
+    
+   wall4 = buildWall(210,40,5);
+   wall4.rotation.y = Math.PI/2;
+   wall4.position.set (-102,20,0);
+    
+   window.addEventListener('resize', onWindowResize, false);
+}
+
+function animate() {
+  for(let i=0;i<pucks.length;i++){
+    pucks[i].position.set(myPucks[i].x,2,myPucks[i].y)
+    lights[i].position.copy(pucks[i].position);
+    lights[i].position.y += 12;
+  }
+  for(let i=0;i<pucks.length;i++){
+    myPucks[i].move();
+  }
+  pucksCollision();
+  
+  for(let i=0;i<pucks.length;i++){
+    wallCollision(myPucks[i]);
+  }
+  
+  requestAnimationFrame(animate);
+  renderer.render(scene, camera);
+}
+
+</script>
+</div>
+</body>
+</html>
