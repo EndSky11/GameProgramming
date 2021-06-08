@@ -1,0 +1,231 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Pragma" content="no-cache" />
+<meta http-equiv="Cache-Control" content="no-cache" />
+<meta http-equiv="Expires" content="0" />
+<style>
+#info {
+  position: absolute;
+  top: 0px;
+  width: 100%;
+  padding: 10px;
+  text-align: center;
+  color: #ffff00;
+}
+body {
+  overflow: hidden;
+}
+</style>
+</head>
+<body>
+<div id="info">HW5
+</div>
+<script src="https://threejs.org/build/three.min.js"></script>
+<script>
+// IIFE addition of clamp function
+(function() {
+  Math.clamp = function(val, min, max) {
+    return Math.min(Math.max(val, min), max);
+  }
+})();
+
+function getRandom(max, min) {
+  return Math.random() * (max - min) + min;
+}
+
+function onWindowResize() {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+}
+
+class Agent {
+  constructor(pos, mesh) {
+    this.pos = pos.clone();
+    this.vel = new THREE.Vector3();
+    this.force = new THREE.Vector3();
+    this.target = null;
+    this.size = 3;
+    this.mesh = mesh;
+    this.mesh.position.copy(this.pos);
+    scene.add(mesh);
+    this.MAXSPEED = 5;
+    this.MINSPEED = 3;
+    this.ARRIVAL_R = 25;
+    this.nbhd = [];
+    this.angle = 0;
+  }
+  update(dt){
+    this.accumulateForce(-50,0,-20,20);
+    this.accumulateForce(-20,20,20,-10);
+    this.accumulateForce(20,-10,50,10);
+ 
+    this.vel.add(this.force.clone().multiplyScalar(dt));
+    // ARRIVAL: velocity modulation
+    if(this.target){
+    	let diff = this.target.clone().sub(this.pos)
+      let dst = diff.length();
+      if (dst < this.ARRIVAL_R){
+        this.vel.setLength(dst);
+      }
+    }
+    // MAXSPEED modulation
+    let speed = this.vel.length();
+    this.vel.setLength(Math.clamp (speed, this.MINSPEED, this.MAXSPEED));
+    this.pos.add(this.vel.clone().multiplyScalar(dt));
+    this.mesh.position.copy(this.pos);
+    // for orientable agent
+    if(this.vel.length() > 1){
+      this.angle = Math.atan2(this.vel.y, this.vel.x);
+      this.mesh.rotation.z = this.angle;
+    }
+  }
+  setTarget(x, y, z){
+    if (this.target)this.target.set(x, y, z);
+    else this.target = new THREE.Vector3(x, y, z);
+  }
+  targetInducedForce(targetPos, mode = 0){ 
+    let speed;
+    if (mode === 0)speed = this.MAXSPEED;
+    else if (mode === 1)speed = this.vel.length();
+    return targetPos.clone().sub(this.pos).normalize().multiplyScalar(speed).sub(this.vel)
+  }
+
+  accumulateForce(p1x,p1y,p2x,p2y) {
+
+    if(this.pos.x >= p1x &&　this.pos.x <=　p2x){
+    	let push = new THREE.Vector3();
+      this.force.set (0,0,0);
+      if (this.target){
+        this.force.add(this.targetInducedForce(this.target));
+      }
+
+      let pStart = new THREE.Vector3(p1x,p1y,0); 
+      let pEnd = new THREE.Vector3(p2x,p2y,0); 
+      let pHat = pEnd.clone().sub(pStart).normalize(); 
+      let posF = this.pos.clone().add(this.vel);
+      let tmp = posF.clone().sub(pStart); 
+      let proj = pHat.multiplyScalar(tmp.dot(pHat)).add(pStart); 
+      let distance = posF.distanceTo(proj);
+
+      if (distance > radius) {
+          let correction = this.targetInducedForce(proj,1);
+          this.force.add(correction);
+      }
+			
+      for (let i = 0; i < this.nbhd.length; i++) {
+        let point = this.pos.clone().sub(this.nbhd[i].pos);
+        push.add(point.setLength(1 / point.length()));
+      }
+       this.force.add(push);
+    }
+  }
+  distanceTo(otherAgent) {
+    return this.pos.distanceTo(otherAgent.pos)
+  }
+  addNbr(otherAgent) {
+    this.nbhd.push(otherAgent)
+  }
+}
+
+function buildPath(p1x,p1y,p2x,p2y,radius){
+  let pStart = new THREE.Vector3 (p1x,p1y,-1);
+  let pEnd = new THREE.Vector3 (p2x,p2y,-1);
+
+  let path1 = new THREE.Mesh (new THREE.CircleGeometry (radius,20), new THREE.MeshBasicMaterial({color:'blue', transparent:true, opacity:0.2}));
+  let path2 = path1.clone();
+  path1.position.copy (pStart);
+  path2.position.copy (pEnd);
+  scene.add (path1, path2);
+
+  let path = new THREE.Mesh (new THREE.PlaneGeometry (pStart.distanceTo(pEnd), 2*radius), new THREE.MeshBasicMaterial({color:'white', transparent:true, opacity:0.2}));
+  scene.add (path);
+
+  let center = pStart.clone().add(pEnd).multiplyScalar(0.5);
+  path.position.copy (center);
+  let p = pEnd.clone().sub(pStart); 
+  let angle = Math.atan2(p.y, p.x);
+  path.rotation.z = angle;
+}
+
+function buildAgent(){
+  let pos = new THREE.Vector3(-50, getRandom(5,-5), 0);
+  let mesh = new THREE.Mesh(new THREE.CircleGeometry(1, 20), new THREE.MeshBasicMaterial({color: 'cyan'}));
+  mesh.material.color = new THREE.Color().setHSL(Math.random(),Math.random(),Math.random());
+  let agent = new Agent(pos, mesh);
+  agent.vel.set(3, 3, 0);
+  agents.push(agent);
+  
+  if(agents.length < 10){
+  	setTimeout(buildAgent, 1000);
+  }
+}
+
+function findNbhd(agents){
+  let i, j, dst;
+  let nAgents = agents.length;
+  agents.forEach(function(agent){agent.nbhd = [];});
+  for (i = 0; i < nAgents - 1; i++){
+    for (j = i + 1; j < nAgents; j++){
+      dst = agents[i].distanceTo(agents[j])
+      if (dst < 10) {
+        agents[i].addNbr(agents[j]);
+        agents[j].addNbr(agents[i]);
+      }
+    }
+  }
+}
+
+var camera, scene, renderer;
+var agents = [];
+var radius;
+
+init();
+animate();
+
+function init() {
+  renderer = new THREE.WebGLRenderer({
+    antialias: true
+  });
+
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setClearColor(0x888888);
+  document.body.appendChild(renderer.domElement);
+
+  scene = new THREE.Scene();
+  camera = new THREE.OrthographicCamera(-50, 50, 50, -50, -10, 100);
+  camera.position.z = 10;
+
+  let grid = new THREE.GridHelper (100,10, 'red','white');
+  grid.rotation.x = -Math.PI/2;
+  scene.add (grid);
+
+  /////////////////////////////////////////////////////////
+  buildAgent();
+  radius = 4;
+  buildPath(-50,0,-20,20,radius);
+  buildPath(-20,20,20,-10,radius);
+  buildPath(20,-10,50,10,radius);
+  window.addEventListener('resize', onWindowResize, false);
+}
+
+function animate() {
+  requestAnimationFrame(animate);
+  render();
+  let dt = 0.1; 
+  findNbhd(agents);
+  agents.forEach (function(agent) {
+  	agent.update(dt);
+  	if (agent.pos.x > 50) 
+    	agent.pos.set (-50,getRandom(5,-5), 0);
+  });
+}
+
+function render() {
+  renderer.render(scene, camera);
+}
+</script>
+</body>
+</html>
